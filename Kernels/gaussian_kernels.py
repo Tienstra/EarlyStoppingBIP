@@ -18,7 +18,7 @@ class GaussianKernel:
          return f'PriorCovariance(dim_theta={self.dim_theta}, dim_y={self.dim_y})'
     
 if __name__ == "__main__":
-    prior_cov = GaussianFourier(2,2,2)
+    prior_cov = GaussianKernel(2,2,2)
     print(prior_cov)
-    print(prior_cov.operator)
+    print(prior_cov.operator_fourier)
 #print(__name__)

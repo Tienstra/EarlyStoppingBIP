@@ -23,7 +23,11 @@ class DiscrepencyPrinciple(StoppingRule):
         super().__init__(observations, predictions,tolerance, kappa, max_iterations)
 
     def check_convergence(self):
-         self.iteration +=1
-         if self.residuals <= self.kappa*np.sqrt(self.dim_predictions*self.tolerance):
+        self.iteration +=1
+        if self.residuals <= self.kappa*np.sqrt(self.dim_predictions*self.tolerance):
+            print("Converged")
             self.converge = True
+        elif self.residuals > self.kappa*np.sqrt(self.dim_predictions*self.tolerance):
+            print("Reached Max Iterations")
+    
 

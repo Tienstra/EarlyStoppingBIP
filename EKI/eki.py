@@ -5,6 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from  Kernels.gaussian_kernels import GaussianKernel
+from ForwardModels import models
 
 class EKI:
     def __init__(self,forward_model, observations, dim_particles, num_particles, init_covariance, init_mean, noise_level, time):
@@ -62,11 +63,18 @@ class EKI:
 
 
   
-# if __name__ == "__main__":
-#     dim_theta = 2
-#     num_particles = 20
-#     # Initialize with proper covariance and mean
-#     init_mean = np.zeros(dim_theta)  # Assuming zero mean for the prior
-#     prior_cov = GaussianKernel(dim_theta, num_particles, 2).operator_fourier
-#     init_ensemble  = EKI(dim_theta, num_particles, prior_cov, init_mean).init_ensemble
-#     print(init_ensemble)
+if __name__ == "__main__":
+    dim_y = dim_theta = 2
+    num_particles = 20
+    # Initialize with proper covariance and mean
+    init_mean = np.zeros(dim_theta)  # Assuming zero mean for the prior
+    prior_cov = GaussianKernel(dim_theta, num_particles, 2).operator_fourier
+    linear_model = models.LinearForwardModel(dim_theta,num_particles,5)
+    theta_dagger = np.ones(dim_theta)
+    noise_level = 0.001
+    time = [0,1,10]
+    noise = np.random.normal(0, noise_level, dim_y)
+    y = linear_model.evaluate(theta_dagger) + noise
+    EKI  = EKI(linear_model, y, dim_y, num_particles, prior_cov, init_mean, noise_level, time)
+    print(EKI.ensemble)
+

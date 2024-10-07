@@ -1,6 +1,7 @@
 import numpy as np
+from abc import ABC, abstractmethod
 
-class ForwardModel:
+class ForwardModel(ABC):
     def __init__(self, dim_theta, dim_y):
         self.dim_theta = dim_theta
         self.dim_y = dim_y
@@ -9,6 +10,12 @@ class ForwardModel:
         return f'ForwardModel(dim_theta={self.dim_theta}, dim_y={self.dim_y})'
     def __repr__(self) -> str:
          return f'ForwardModel(dim_theta={self.dim_theta}, dim_y={self.dim_y})'
+    @abstractmethod
+    def _get_operator(self):
+        pass 
+    @abstractmethod
+    def evaluate(self):
+        pass 
 
 
 
@@ -31,5 +38,5 @@ class LinearForwardModel(ForwardModel):
 class Schroedinger(ForwardModel): 
     pass 
 
-linear_model = LinearForwardModel(10,10,5)
-print(linear_model)
+# linear_model = LinearForwardModel(10,10,5)
+# print(linear_model)
