@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 
 
 class StoppingRule(ABC): 
-    def __init__(self, residuals, tolerance, kappa,max_iterations):
+    def __init__(self, residuals, effective_dim, tolerance, kappa,max_iterations):
         self.residuals = residuals
-        self.effective_dim = residuals.shape[0]
+        self.effective_dim = effective_dim
         self.tolerance = tolerance 
         self.kappa = kappa 
         self.iteration = 0
@@ -22,7 +22,7 @@ class DiscrepancyPrinciple(StoppingRule):
 
     def check_convergence(self):
         self.iteration +=1
-        if self.residuals <= self.kappa*np.sqrt(self.effective_dim*self.tolerance):
+        if self.residuals <= self.kappa*(np.sqrt(self.effective_dim*self.tolerance)):
             print("Converged")
             self.converge = True
         elif self.residuals > self.kappa*np.sqrt(self.dim_predictions*self.tolerance):
