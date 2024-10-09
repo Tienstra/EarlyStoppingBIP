@@ -10,23 +10,24 @@ class StoppingRule(ABC):
         self.kappa = kappa 
         self.iteration = 0
         self.max_iterations = max_iterations
-        self.converge = False
     @abstractmethod
-    def check_convergence():
+    def converged():
         pass 
     
-
 class DiscrepancyPrinciple(StoppingRule):
-    def __init__(self,residuals, tolerance, kappa,max_iterations):
-        super().__init__(residuals, tolerance, kappa,max_iterations)
+    def __init__(self,residuals, effective_dim, tolerance, kappa,max_iterations):
+        super().__init__(residuals, effective_dim, tolerance, kappa,max_iterations)
 
-    def check_convergence(self):
+    def converged(self):
         self.iteration +=1
         if self.residuals <= self.kappa*(np.sqrt(self.effective_dim*self.tolerance)):
-            print("Converged")
-            self.converge = True
+            return True
         elif self.residuals > self.kappa*np.sqrt(self.dim_predictions*self.tolerance):
-            print("Reached Max Iterations")
-            self.converge = False
+            return False
     
+    
+
+
+DiscrepancyPrinciple(0.02,4,1,1,4).converged()
+
 
