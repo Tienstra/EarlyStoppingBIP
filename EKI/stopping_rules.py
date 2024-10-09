@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 class StoppingRule(ABC): 
     def __init__(self, residuals, tolerance, kappa,max_iterations):
         self.residuals = residuals
-        self.effective_dim = np.len(residuals)
+        self.effective_dim = residuals.shape[0]
         self.tolerance = tolerance 
         self.kappa = kappa 
         self.iteration = 0
@@ -18,7 +18,7 @@ class StoppingRule(ABC):
 
 class DiscrepancyPrinciple(StoppingRule):
     def __init__(self,residuals, tolerance, kappa,max_iterations):
-        super().__init__(self,residuals, tolerance, kappa,max_iterations)
+        super().__init__(residuals, tolerance, kappa,max_iterations)
 
     def check_convergence(self):
         self.iteration +=1
