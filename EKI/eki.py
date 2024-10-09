@@ -18,6 +18,7 @@ class EKI:
         self.forward_model = forward_model
         self.observations = observations
         self.ensemble = self._sample_prior()
+        self.predictions = self._push_forward()
         self.time = time #this should be a list [start, end, num points]
     def _get_dt(self):
         return (self.time[1] - self.time[0]) / self.time[2]
@@ -45,14 +46,16 @@ class EKI:
         return K
     
     def _update_ensemble(self):
-        g_Theta = self._push_forward()
-        g_bar = np.mean(g_Theta, axis=1)
+        g_bar = np.mean(self.predictions, axis=1)
         g_bar_mat = np.tile(g_bar, (self.num_particles,1)).T
         y_mat = np.tile(self.observations,(self.num_particles,1)).T
         K = self.compute_kalman_gain()
         kalman_update = K@(g_Theta + g_bar_mat - 2*y_mat)
        
         self.ensemble = self.ensemble - (1/2) * kalman_update
+
+    def compute_residuals(self):
+        return np.linalg.norm(self.observations - self.predictions)
 
     def fit(self):
         ts = np.arange(self.time[0], self.time[1] + self._get_dt, self._get_dt)
