@@ -1,9 +1,8 @@
 import numpy as np
 
 class GaussianKernel: 
-    def __init__(self, dim_theta, dim_y, alpha):
+    def __init__(self, dim_theta, alpha):
         self._dim_theta = dim_theta
-        self._dim_y = dim_y
         self._alpha = alpha
         self._operator_fourier = self._get_operator()
 
@@ -15,17 +14,10 @@ class GaussianKernel:
     def dim_theta(self):
         return self._dim_theta
     
-    @property
-    def dim_y(self):
-        return self._dim_y
-   
     @dim_theta.setter
     def dim_theta(self, new_dim_theta):
         self._dim_y = new_dim_theta
-    
-    @dim_y.setter
-    def dim_y(self, new_dim_y):
-        self._dim_y = new_dim_y
+        self._operator_fourier = self._get_operator()
     
     @alpha.setter
     def alpha(self, new_alpha):

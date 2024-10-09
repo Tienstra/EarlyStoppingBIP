@@ -71,7 +71,7 @@ if __name__ == "__main__":
     num_particles = 20
     # Initialize with proper covariance and mean
     init_mean = np.zeros(dim_theta)  # Assuming zero mean for the prior
-    prior_cov = GaussianKernel(dim_theta, num_particles, 2).operator_fourier
+    prior_cov = GaussianKernel(dim_theta, 2).operator_fourier
     linear_model = models.LinearForwardModel(dim_theta,num_particles,5)
     theta_dagger = np.ones(dim_theta)
     noise_level = 0.001
