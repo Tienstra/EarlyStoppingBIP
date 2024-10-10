@@ -38,5 +38,7 @@ class LinearForwardModel(ForwardModel):
 class Schroedinger(ForwardModel): 
     pass 
 
-# linear_model = LinearForwardModel(10,10,5)
-# print(linear_model)
+
+
+#linear_model = LinearForwardModel(2,2,1)._get_operator()
+#print(linear_model)
