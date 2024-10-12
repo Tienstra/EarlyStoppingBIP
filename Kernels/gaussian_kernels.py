@@ -35,9 +35,3 @@ class GaussianKernel:
     def __repr__(self) -> str:
          return f'PriorCovariance(dim_theta={self._dim_theta}, dim_y={self._dim_y})'
     
-if __name__ == "__main__":
-    prior_cov = GaussianKernel(2,2,2)
-    prior_cov.alpha = 0.5
-    print(prior_cov)
-    print(prior_cov._operator_fourier)
-#print(__name__)
