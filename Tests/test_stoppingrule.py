@@ -15,6 +15,6 @@ def test_dp():
     eff_dim = 4
 
     assert (
-        DiscrepancyPrinciple(residuals, eff_dim, tol, kappa, max_iter).converged()
+        DiscrepancyPrinciple(eff_dim, tol, kappa, max_iter).converged(residuals)
         == True
     )
