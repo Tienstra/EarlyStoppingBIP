@@ -1,6 +1,6 @@
-import numpy as np
-from abc import ABC, abstractmethod
 
+from abc import ABC, abstractmethod
+import jax.numpy as jnp
 
 class ForwardModel(ABC):
     def __init__(self, dim_theta, dim_y):
@@ -29,13 +29,16 @@ class LinearForwardModel(ForwardModel):
         self.operator = self._get_operator()
 
     def _get_operator(self):
-        i = np.linspace(1, self.dim_theta, self.dim_theta)
-        gi = np.apply_along_axis(lambda x: x ** (-self.p), 0, i)
-        return np.diag(gi)
+        i = jnp.linspace(1, self.dim_theta, self.dim_theta)
+        gi = jnp.apply_along_axis(lambda x: x ** (-self.p), 0, i)
+        return jnp.diag(gi)
 
     def evaluate(self, theta):
-        return self.operator @ theta
-
+        if theta.ndim == 1:
+            return self.operator @ theta
+        else:
+            # For ensemble evaluation (multiple particles)
+            return jnp.dot(self.operator, theta)
 
 class Schroedinger(ForwardModel):
     pass
