@@ -85,7 +85,6 @@ class Schroedinger(ForwardModel):
                 bc_type: Type of boundary conditions ('dirichlet' or 'periodic').
             """
 
-
     def _set_potential(self, Lap) -> jnp.ndarray:
         """
         Apply boundary conditions to the operator matrix.
@@ -120,13 +119,12 @@ class Schroedinger(ForwardModel):
             The discretized operator matrix.
         """
         Laplace = compute_second_order_diff(self.D, self.h)
-        Schroedinger_mat  = self._set_potential(Laplace)
+        Schroedinger_mat = self._set_potential(Laplace)
         if self.plot:
             sns.heatmap(Schroedinger_mat)
             plt.show()
 
         return Schroedinger_mat
-
 
     def evaluate_single(self, g_array, f_potential) -> jnp.ndarray:
         """

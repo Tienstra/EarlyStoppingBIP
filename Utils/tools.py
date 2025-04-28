@@ -22,7 +22,7 @@ def compute_second_order_diff(D, h):
 
     M = M.at[0, -1].set(1)
 
-    D2 = -M@M.T / (2*(h**2))
+    D2 = -M @ M.T / (2 * (h**2))
 
     return D2
 
@@ -31,7 +31,7 @@ def compute_regularised_laplace_covariance(D, h, mu=1e2):
     D2 = compute_second_order_diff(D, h)
     Ones_mat = jnp.ones((D + 1, D + 1))
     gamma = 1 / (2 * (h**2))
-    cov = jnp.linalg.inv((mu * ((gamma)*Ones_mat) / (D + 1)) - D2)
+    cov = jnp.linalg.inv((mu * ((gamma) * Ones_mat) / (D + 1)) - D2)
 
     return cov
 
@@ -55,14 +55,14 @@ def compute_laplace(D, h):
     Lap = Lap.at[-1, 0].set(1)
 
     # Scale by 2h²
-    Lap = Lap / (2 * (h ** 2))
+    Lap = Lap / (2 * (h**2))
 
     return Lap
 
-if __name__ == '__main__':
-    D=2
-    lap = compute_laplace(D,0.5)
+
+if __name__ == "__main__":
+    D = 2
+    lap = compute_laplace(D, 0.5)
     D2 = compute_second_order_diff(D, 0.5)
     print(lap)
     print(D2)
-
