@@ -2,6 +2,17 @@ import jax
 import jax.numpy as jnp
 from jax import random, vmap
 from typing import Tuple, Dict, Any, Optional
+import matplotlib.pyplot as plt
+
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
+from ForwardModels.models import LinearForwardModel, ForwardModel
+from Kernels.gaussian_kernels import GaussianKernel
+from EKI.stopping_rules import DiscrepancyPrinciple
 
 
 class EKI:
@@ -37,6 +48,7 @@ class EKI:
             init_mean: Initial mean for parameters.
             noise_level: Noise level in the observations.
             time_interval: Tuple of (start_time, end_time, num_steps).
+            stopping_rule: Stopping rule function that determines to stop iterations.
             rng_key: JAX random key for reproducibility.
         """
         self.forward_model = forward_model
@@ -191,7 +203,7 @@ class EKI:
         """
 
         # Run iterations until convergence or max iterations
-        ts = jnp.arange(self.time[0], self.time[1] + self._get_dt, self._get_dt)
+        ts = jnp.arange(self.time[0], self.time[1] , self._get_dt())
         for index in range(0, ts.size - 1):
 
             # Check for convergence
@@ -217,3 +229,65 @@ class EKI:
         }
 
         return results
+
+
+def main():
+    """Run a simple EKI example."""
+    # Set random seed for reproducibility
+    key = random.PRNGKey(42)
+
+    # Problem dimensions
+    dim_parameters = 5
+    dim_observations = 3
+    num_particles = 50
+
+
+    forward_model = LinearForwardModel(dim_parameters, dim_observations,5)
+
+
+    theta_true = jnp.ones(dim_parameters)
+
+
+    y_true = forward_model.evaluate(theta_true[:, jnp.newaxis])[:, 0]
+
+    # Add noise to observations
+    noise_level = 0.01
+    key, subkey = random.split(key)
+    noise = noise_level * random.normal(subkey, y_true.shape)
+    observations = y_true + noise
+    prior_cov = GaussianKernel(dim_parameters, 2)._operator_fourier
+    # Initialize EKI solver
+    eki = EKI(
+        forward_model=forward_model,
+        observations=observations,
+        dim_parameters=dim_parameters,
+        num_particles=num_particles,
+        init_covariance=prior_cov,
+        init_mean = jnp.zeros(dim_parameters),
+        noise_level=noise_level,
+        time_interval=(0.0, 1.0, 50),  # (start, end, max_steps)
+        rng_key=key
+    )
+
+    # Create stopping rule: Discrepancy principle
+    stopping_rule = DiscrepancyPrinciple(
+        effective_dim=dim_observations,
+        tolerance=noise_level,
+        kappa=1.1,
+        max_iterations=50
+    )
+
+    # Run the algorithm with early stopping
+    results = eki.fit(
+        stopping_rule=stopping_rule
+    )
+
+    # Print results
+    print(f"\nAlgorithm converged: {results['converged']}")
+    print(f"Stopping time: {results['stopping_time']}")
+    print(f"Final residual: {results['final_residual']:.6f}")
+
+
+
+if __name__ == "__main__":
+    main()

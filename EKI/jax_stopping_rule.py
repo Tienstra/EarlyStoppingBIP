@@ -27,7 +27,7 @@ class StoppingRule(ABC):
         self.iteration = 0
 
     @abstractmethod
-    def check_convergence(self, residuals) -> bool:
+    def converged(self, residuals) -> bool:
         """
         Check if the algorithm has converged based on this stopping rule.
 
@@ -47,9 +47,8 @@ class DiscrepancyPrinciple(StoppingRule):
     def __init__(
         self,
         effective_dim: int,
-        noise_level: float,
-        kappa: float,
         tolerance: float,
+        kappa: float,
         max_iterations: int,
     ):
         """
