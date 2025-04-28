@@ -59,6 +59,7 @@ def kth_diag_indices(a, k):
     else:
         return rows, cols
 
+
 class Schroedinger(ForwardModel):
     def __init__(self, dim_theta, dim_y, f_array, plot):
         super().__init__(dim_theta, dim_y)
@@ -108,7 +109,7 @@ class Schroedinger(ForwardModel):
         Lap = Lap.at[-1, 0].set(1)
 
         # Scale by h²/2
-        Lap = Lap / 2 * (self.h ** 2)
+        Lap = Lap / 2 * (self.h**2)
 
         return Lap
 
@@ -127,7 +128,6 @@ class Schroedinger(ForwardModel):
 
         # Get diagonal indices
         diag_indices = kth_diag_indices(I, 0)
-
 
         I = I.at[diag_indices].set(self.f_array)
 
@@ -181,15 +181,10 @@ class Schroedinger(ForwardModel):
         """
         # Apply the model to each particle in the ensemble
         # Using vmap for vectorization
-        batched_evaluate = vmap(
-            self.evaluate_single, in_axes=(None, 1), out_axes=1
-        )
+        batched_evaluate = vmap(self.evaluate_single, in_axes=(None, 1), out_axes=1)
         outputs = batched_evaluate(g_array, ensemble)
 
         return outputs
-
-
-
 
 
 if __name__ == "__main__":
@@ -198,19 +193,19 @@ if __name__ == "__main__":
     x_indices = jnp.arange(D + 1)
     x_array = (2 * jnp.pi * x_indices) / (D + 1)
     f_array = jnp.exp(0.5 * jnp.sin(x_array))
-    plot = True
+    plot = False
     model = Schroedinger(D, D, f_array, plot)
 
-    # # Create ensemble of potentials (dim_parameters, num_particles)
-    # num_particles = 3
-    # ensemble = jnp.ones((D, num_particles)) * 2.0  # simple test: all potentials = 2
-    #
-    # # Create g_array (right-hand side)
-    # g_array = jnp.exp(-(x_array - L / 2) ** 2 / 10) - jnp.exp(-(x_array - L / 2) ** 2 / 10).mean()
-    #
-    # # Call the evaluate function
-    # outputs = model.evaluate(g_array=g_array, ensemble=ensemble)
-    #
-    # print("Outputs shape:", outputs.shape)  # Should be (dim_y + 1, num_particles)
-    # print("Outputs:")
-    # print(outputs)
+    # Create ensemble of potentials (dim_parameters, num_particles)
+    num_particles = 3
+    ensemble = jnp.ones((D+1, num_particles)) * 2.0  # simple test: all potentials = 2
+
+    # Create g_array (right-hand side)
+    g_array = jnp.exp(-(x_array - L / 2) ** 2 / 10) - jnp.exp(-(x_array - L / 2) ** 2 / 10).mean()
+
+    # Call the evaluate function
+    outputs = model.evaluate(g_array=g_array, ensemble=ensemble)
+
+    print("Outputs shape:", outputs.shape)  # Should be (dim_y + 1, num_particles)
+    print("Outputs:")
+    print(outputs)
