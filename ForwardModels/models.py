@@ -109,7 +109,7 @@ class Schroedinger(ForwardModel):
         Lap = Lap.at[-1, 0].set(1)
 
         # Scale by h²/2
-        Lap = Lap / 2 * (self.h**2)
+        Lap = Lap / (2 * (self.h**2))
 
         return Lap
 
