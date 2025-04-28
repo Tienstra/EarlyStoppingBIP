@@ -203,7 +203,7 @@ class EKI:
         """
 
         # Run iterations until convergence or max iterations
-        ts = jnp.arange(self.time[0], self.time[1] , self._get_dt())
+        ts = jnp.arange(self.time[0], self.time[1], self._get_dt())
         for index in range(0, ts.size - 1):
 
             # Check for convergence
@@ -241,12 +241,9 @@ def main():
     dim_observations = 3
     num_particles = 50
 
-
-    forward_model = LinearForwardModel(dim_parameters, dim_observations,5)
-
+    forward_model = LinearForwardModel(dim_parameters, dim_observations, 5)
 
     theta_true = jnp.ones(dim_parameters)
-
 
     y_true = forward_model.evaluate(theta_true[:, jnp.newaxis])[:, 0]
 
@@ -263,10 +260,10 @@ def main():
         dim_parameters=dim_parameters,
         num_particles=num_particles,
         init_covariance=prior_cov,
-        init_mean = jnp.zeros(dim_parameters),
+        init_mean=jnp.zeros(dim_parameters),
         noise_level=noise_level,
         time_interval=(0.0, 1.0, 50),  # (start, end, max_steps)
-        rng_key=key
+        rng_key=key,
     )
 
     # Create stopping rule: Discrepancy principle
@@ -274,19 +271,16 @@ def main():
         effective_dim=dim_observations,
         tolerance=noise_level,
         kappa=1.1,
-        max_iterations=50
+        max_iterations=50,
     )
 
     # Run the algorithm with early stopping
-    results = eki.fit(
-        stopping_rule=stopping_rule
-    )
+    results = eki.fit(stopping_rule=stopping_rule)
 
     # Print results
     print(f"\nAlgorithm converged: {results['converged']}")
     print(f"Stopping time: {results['stopping_time']}")
     print(f"Final residual: {results['final_residual']:.6f}")
-
 
 
 if __name__ == "__main__":

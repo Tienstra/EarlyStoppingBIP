@@ -1,9 +1,9 @@
-
 from abc import ABC, abstractmethod
 import jax
 import jax.numpy as jnp
 from jax import random, vmap, jit
 import numpy as np
+import seaborn as sns
 from functools import partial
 from typing import Tuple, Callable, Optional, Dict, Any
 
@@ -48,16 +48,27 @@ class LinearForwardModel(ForwardModel):
             # For ensemble evaluation (multiple particles)
             return jnp.dot(self.operator, theta)
 
-class Schroedinger(ForwardModel):
-    def __init__(self, dim_theta, dim_y, f_array):
-        super().__init__(dim_theta, dim_y)
 
+def kth_diag_indices(a, k):
+    """JAX version of kth_diag_indices - returns indices for the kth diagonal"""
+    rows, cols = jnp.diag_indices(a.shape[0])
+    if k < 0:
+        return rows[-k:], cols[:k]
+    elif k > 0:
+        return rows[:-k], cols[k:]
+    else:
+        return rows, cols
+
+class Schroedinger(ForwardModel):
+    def __init__(self, dim_theta, dim_y, f_array, plot):
+        super().__init__(dim_theta, dim_y)
 
         self.D = dim_y
         self.L = 2 * jnp.pi
         self.h = self.L / self.D  # Grid spacing
         self.f_array = f_array
-        self.operator = self._get_operator()
+        self.plot = plot
+        self.operator = jnp.array(self._get_operator())
 
     """
             Initialize the Schrödinger model.
@@ -67,7 +78,6 @@ class Schroedinger(ForwardModel):
                 interval_length: Length of the spatial domain.
                 bc_type: Type of boundary conditions ('dirichlet' or 'periodic').
             """
-
 
     def _build_schrodinger_operator(self) -> np.ndarray:
         """
@@ -80,18 +90,29 @@ class Schroedinger(ForwardModel):
         Returns:
             The discretized operator matrix.
         """
-        Lap = np.zeros((self.D + 1, self.D + 1))
-        Lap[kth_diag_indices(Lap, 0)] = -2
-        Lap[kth_diag_indices(Lap, -1)] = 1
-        Lap[kth_diag_indices(Lap, 1)] = 1
-        Lap[0, -1] = 1
-        Lap[-1, 0] = 1
+        # Create empty matrix with JAX
+        Lap = jnp.zeros((self.D + 1, self.D + 1))
+
+        # Get diagonal indices
+        diag_indices = kth_diag_indices(Lap, 0)
+        diag_lower_indices = kth_diag_indices(Lap, -1)
+        diag_upper_indices = kth_diag_indices(Lap, 1)
+
+        # Create updated arrays with values set at specific indices
+        Lap = Lap.at[diag_indices].set(-2)
+        Lap = Lap.at[diag_lower_indices].set(1)
+        Lap = Lap.at[diag_upper_indices].set(1)
+
+        # Set corner values for periodic boundary
+        Lap = Lap.at[0, -1].set(1)
+        Lap = Lap.at[-1, 0].set(1)
+
+        # Scale by h²/2
         Lap = Lap / 2 * (self.h ** 2)
 
         return Lap
 
-
-    def _set_boundry(self, Lap) -> jnp.ndarray:
+    def _set_potential(self, Lap) -> jnp.ndarray:
         """
         Apply boundary conditions to the operator matrix.
 
@@ -102,19 +123,28 @@ class Schroedinger(ForwardModel):
             Matrix with boundary conditions applied.
         """
         # Create identity matrix for boundary conditions
-        I = np.zeros((D + 1, D + 1))
-        I[kth_diag_indices(I, 0)] = self.f_array
+        I = jnp.zeros((self.D + 1, self.D + 1))
 
-        Lap_w_boudry = Lap - I
-        return Lap_w_boudry
+        # Get diagonal indices
+        diag_indices = kth_diag_indices(I, 0)
+
+
+        I = I.at[diag_indices].set(self.f_array)
+
+        # Subtract from Lap
+        Lap_w_boundray = Lap - I
+        return Lap_w_boundray
 
     def _get_operator(self):
-        linear_mat =  self._build_schrodinger_operator()
-        mat_w_boundry = self._set_boundry(linear_mat)
+        linear_mat = self._build_schrodinger_operator()
+        mat_w_potential = self._set_potential(linear_mat)
+        if self.plot:
+            sns.heatmap(mat_w_potential)
+            plt.show()
 
-        return mat_w_boundry
+        return mat_w_potential
 
-    def evaluate_single(self, theta: jnp.ndarray) -> jnp.ndarray:
+    def evaluate_single(self, g_array, f_potential) -> jnp.ndarray:
         """
         Evaluate the model for a single parameter vector.
 
@@ -124,22 +154,22 @@ class Schroedinger(ForwardModel):
         Returns:
             Solution of the Schrödinger equation.
         """
-        # Get potential function
-        potential = self._compute_potential(theta)
 
-        # Compute source term
-        g = self._compute_source(self.grid_points)
+        # Create identity matrix for boundary conditions
+        I = jnp.zeros((self.D + 1, self.D + 1))
 
-        # Add potential term to operator
-        # For Schrödinger: -1/2 ∇² u + V u = g
-        L_with_potential = self.operator_with_bc + jnp.diag(potential)
+        # Get diagonal indices and set values
+        diag_indices = kth_diag_indices(I, 0)
+        I = I.at[diag_indices].set(f_potential)
+
+        # Create the operator matrix L (note: L was undefined in original code, using operator)
+        L = self.operator - I
 
         # Solve the system
-        solution = solve_schrodinger(L_with_potential, g)
-
+        solution = jnp.linalg.pinv(L) @ g_array
         return solution
 
-    def evaluate(self, ensemble: jnp.ndarray) -> jnp.ndarray:
+    def evaluate(self, g_array, ensemble) -> jnp.ndarray:
         """
         Evaluate the model for an ensemble of parameters.
 
@@ -151,44 +181,36 @@ class Schroedinger(ForwardModel):
         """
         # Apply the model to each particle in the ensemble
         # Using vmap for vectorization
-        ensemble_evaluate = vmap(self.evaluate_single, in_axes=1, out_axes=1)
+        batched_evaluate = vmap(
+            self.evaluate_single, in_axes=(None, 1), out_axes=1
+        )
+        outputs = batched_evaluate(g_array, ensemble)
 
-        return ensemble_evaluate(ensemble)
-
-
-
-def solve_schrodinger(L: jnp.ndarray, g_array: jnp.ndarray) -> jnp.ndarray:
-    """
-    Solve the Schrödinger equation Lu = g.
-
-    Args:
-        L: The operator matrix with boundary conditions applied.
-        g_array: The right-hand side of the equation.
-
-    Returns:
-        The solution u.
-    """
-    # Using pseudo-inverse to solve the system
-    solution = jnp.linalg.pinv(L) @ g_array
-
-    return solution
+        return outputs
 
 
-def kth_diag_indices(a, k):
-    rows, cols = np.diag_indices_from(a)
-    if k < 0:
-        return rows[-k:], cols[:k]
-    elif k > 0:
-        return rows[:-k], cols[k:]
-    else:
-        return rows, cols
+
+
 
 if __name__ == "__main__":
-    import seaborn as sns
     D = 10
-    x_indices = np.arange(D + 1)
-    x_array = (2 * np.pi * x_indices) / (D + 1)
-    f_array = np.exp(0.5 * np.sin(x_array))
-    schrodinger_mat = Schroedinger(D,D, f_array).operator
-    sns.heatmap(schrodinger_mat)
-    plt.show()
+    L = 2 * jnp.pi
+    x_indices = jnp.arange(D + 1)
+    x_array = (2 * jnp.pi * x_indices) / (D + 1)
+    f_array = jnp.exp(0.5 * jnp.sin(x_array))
+    plot = True
+    model = Schroedinger(D, D, f_array, plot)
+
+    # # Create ensemble of potentials (dim_parameters, num_particles)
+    # num_particles = 3
+    # ensemble = jnp.ones((D, num_particles)) * 2.0  # simple test: all potentials = 2
+    #
+    # # Create g_array (right-hand side)
+    # g_array = jnp.exp(-(x_array - L / 2) ** 2 / 10) - jnp.exp(-(x_array - L / 2) ** 2 / 10).mean()
+    #
+    # # Call the evaluate function
+    # outputs = model.evaluate(g_array=g_array, ensemble=ensemble)
+    #
+    # print("Outputs shape:", outputs.shape)  # Should be (dim_y + 1, num_particles)
+    # print("Outputs:")
+    # print(outputs)
