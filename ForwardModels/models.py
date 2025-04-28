@@ -128,9 +128,6 @@ class Schroedinger(ForwardModel):
         return Schroedinger_mat
 
 
-
-
-
     def evaluate_single(self, g_array, f_potential) -> jnp.ndarray:
         """
         Evaluate the model for a single parameter vector.
