@@ -8,6 +8,11 @@ from functools import partial
 from typing import Tuple, Callable, Optional, Dict, Any
 
 from matplotlib import pyplot as plt
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from Utils.tools import compute_second_order_diff
 
 
 class ForwardModel(ABC):
@@ -80,38 +85,6 @@ class Schroedinger(ForwardModel):
                 bc_type: Type of boundary conditions ('dirichlet' or 'periodic').
             """
 
-    def _build_schrodinger_operator(self) -> np.ndarray:
-        """
-        Build the discretized Schrödinger operator matrix.
-
-        Args:
-            D: Size of the grid.
-            h: Grid spacing parameter.
-
-        Returns:
-            The discretized operator matrix.
-        """
-        # Create empty matrix with JAX
-        Lap = jnp.zeros((self.D + 1, self.D + 1))
-
-        # Get diagonal indices
-        diag_indices = kth_diag_indices(Lap, 0)
-        diag_lower_indices = kth_diag_indices(Lap, -1)
-        diag_upper_indices = kth_diag_indices(Lap, 1)
-
-        # Create updated arrays with values set at specific indices
-        Lap = Lap.at[diag_indices].set(-2)
-        Lap = Lap.at[diag_lower_indices].set(1)
-        Lap = Lap.at[diag_upper_indices].set(1)
-
-        # Set corner values for periodic boundary
-        Lap = Lap.at[0, -1].set(1)
-        Lap = Lap.at[-1, 0].set(1)
-
-        # Scale by h²/2
-        Lap = Lap / (2 * (self.h**2))
-
-        return Lap
 
     def _set_potential(self, Lap) -> jnp.ndarray:
         """
@@ -135,14 +108,28 @@ class Schroedinger(ForwardModel):
         Lap_w_boundray = Lap - I
         return Lap_w_boundray
 
-    def _get_operator(self):
-        linear_mat = self._build_schrodinger_operator()
-        mat_w_potential = self._set_potential(linear_mat)
+    def _get_operator(self) -> jnp.ndarray:
+        """
+        Build the discretized Schrödinger operator matrix.
+
+        Args:
+            D: Size of the grid.
+            h: Grid spacing parameter.
+
+        Returns:
+            The discretized operator matrix.
+        """
+        Laplace = compute_second_order_diff(self.D, self.h)
+        Schroedinger_mat  = self._set_potential(Laplace)
         if self.plot:
-            sns.heatmap(mat_w_potential)
+            sns.heatmap(Schroedinger_mat)
             plt.show()
 
-        return mat_w_potential
+        return Schroedinger_mat
+
+
+
+
 
     def evaluate_single(self, g_array, f_potential) -> jnp.ndarray:
         """
@@ -198,10 +185,13 @@ if __name__ == "__main__":
 
     # Create ensemble of potentials (dim_parameters, num_particles)
     num_particles = 3
-    ensemble = jnp.ones((D+1, num_particles)) * 2.0  # simple test: all potentials = 2
+    ensemble = jnp.ones((D + 1, num_particles)) * 2.0  # simple test: all potentials = 2
 
     # Create g_array (right-hand side)
-    g_array = jnp.exp(-(x_array - L / 2) ** 2 / 10) - jnp.exp(-(x_array - L / 2) ** 2 / 10).mean()
+    g_array = (
+        jnp.exp(-((x_array - L / 2) ** 2) / 10)
+        - jnp.exp(-((x_array - L / 2) ** 2) / 10).mean()
+    )
 
     # Call the evaluate function
     outputs = model.evaluate(g_array=g_array, ensemble=ensemble)
