@@ -11,6 +11,8 @@ from matplotlib import pyplot as plt
 import sys
 import os
 
+
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from Utils.tools import compute_second_order_diff
 
@@ -66,7 +68,7 @@ def kth_diag_indices(a, k):
 
 
 class Schroedinger(ForwardModel):
-    def __init__(self, dim_theta, dim_y, f_array, plot):
+    def __init__(self, dim_theta, dim_y, f_array, plot, fourier = False):
         super().__init__(dim_theta, dim_y)
 
         self.D = dim_y
@@ -74,7 +76,9 @@ class Schroedinger(ForwardModel):
         self.h = self.L / self.D  # Grid spacing
         self.f_array = f_array
         self.plot = plot
-        self.operator = jnp.array(self._get_operator())
+        self.operator = self._get_operator()
+        self.foperator = self._get_fourier_operator()
+        self.fourier = fourier
 
     """
             Initialize the Schrödinger model.
@@ -161,13 +165,26 @@ class Schroedinger(ForwardModel):
         Returns:
             Solutions for each parameter set in the ensemble.
         """
-        # Apply the model to each particle in the ensemble
-        # Using vmap for vectorization
-        batched_evaluate = vmap(self.evaluate_single, in_axes=(None, 1), out_axes=1)
-        outputs = batched_evaluate(g_array, ensemble)
+
+        #if in sequence space
+        if self.fourier:
+            if ensemble.ndim == 1:
+                return self.foperator @ ensemble
+            else:
+                # For ensemble evaluation (multiple particles)
+                return jnp.dot(self.foperator, ensemble)
+        #if in func space
+        else:
+            # Apply the model to each particle in the ensemble
+            # Using vmap for vectorization
+            batched_evaluate = vmap(self.evaluate_single, in_axes=(None, 1), out_axes=1)
+            outputs = batched_evaluate(g_array, ensemble)
 
         return outputs
-
+    def _get_fourier_operator(self):
+        i = jnp.linspace(1, self.dim_theta, self.dim_theta)
+        ki = jnp.apply_along_axis(lambda x: (jnp.pi*x)**(-2), 0, i)
+        return jnp.diag(ki)
 
 if __name__ == "__main__":
     D = 10
@@ -176,7 +193,8 @@ if __name__ == "__main__":
     x_array = (2 * jnp.pi * x_indices) / (D + 1)
     f_array = jnp.exp(0.5 * jnp.sin(x_array))
     plot = False
-    model = Schroedinger(D, D, f_array, plot)
+    fourier = False
+    model = Schroedinger(D, D, f_array, plot,fourier)
 
     # Create ensemble of potentials (dim_parameters, num_particles)
     num_particles = 3
