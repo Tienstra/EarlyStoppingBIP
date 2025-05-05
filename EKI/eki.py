@@ -205,12 +205,14 @@ class EKI:
         # Run iterations until convergence or max iterations
         ts = jnp.arange(self.time[0], self.time[1], self._get_dt())
         for index in range(0, ts.size - 1):
+            print(index)
 
             # Check for convergence
             if stopping_rule is not None:
                 current_residual = self.compute_residual()
                 self.converged = stopping_rule.converged(current_residual)
                 if self.converged:
+                    print("converged")
                     break
 
                 # Update the ensemble

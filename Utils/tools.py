@@ -27,6 +27,12 @@ def compute_second_order_diff(D, h):
     return D2
 
 
+def compute_inverse_second_order_diff(Lap):
+    K = jnp.linalg.pinv(Lap)
+
+    return K
+
+
 def compute_regularised_laplace_covariance(D, h, mu=1e2):
     D2 = compute_second_order_diff(D, h)
     Ones_mat = jnp.ones((D + 1, D + 1))

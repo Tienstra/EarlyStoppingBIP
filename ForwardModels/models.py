@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-import jax
 import jax.numpy as jnp
 from jax import random, vmap, jit
-import numpy as np
 import seaborn as sns
 from functools import partial
 from typing import Tuple, Callable, Optional, Dict, Any
@@ -10,7 +8,6 @@ from typing import Tuple, Callable, Optional, Dict, Any
 from matplotlib import pyplot as plt
 import sys
 import os
-
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -38,14 +35,15 @@ class ForwardModel(ABC):
 
 
 class LinearForwardModel(ForwardModel):
-    def __init__(self, dim_theta, dim_y, p):
+    def __init__(self, dim_theta, dim_y, p, coef=1):
         super().__init__(dim_theta, dim_y)
         self.p = p
+        self.coef = coef
         self.operator = self._get_operator()
 
     def _get_operator(self):
         i = jnp.linspace(1, self.dim_theta, self.dim_theta)
-        gi = jnp.apply_along_axis(lambda x: x ** (-self.p), 0, i)
+        gi = jnp.apply_along_axis(lambda x: self.coef * (x ** (-self.p)), 0, i)
         return jnp.diag(gi)
 
     def evaluate(self, theta):
@@ -68,7 +66,7 @@ def kth_diag_indices(a, k):
 
 
 class Schroedinger(ForwardModel):
-    def __init__(self, dim_theta, dim_y, f_array, plot, fourier = False):
+    def __init__(self, dim_theta, dim_y, f_array, plot, fourier=False):
         super().__init__(dim_theta, dim_y)
 
         self.D = dim_y
@@ -76,8 +74,10 @@ class Schroedinger(ForwardModel):
         self.h = self.L / self.D  # Grid spacing
         self.f_array = f_array
         self.plot = plot
-        self.operator = self._get_operator()
-        self.foperator = self._get_fourier_operator()
+        if fourier:
+            self.operator = self._get_fourier_operator()
+        else:
+            self.operator = self._get_operator()
         self.fourier = fourier
 
     """
@@ -166,14 +166,14 @@ class Schroedinger(ForwardModel):
             Solutions for each parameter set in the ensemble.
         """
 
-        #if in sequence space
+        # if in sequence space
         if self.fourier:
             if ensemble.ndim == 1:
-                return self.foperator @ ensemble
+                return self.operator @ ensemble
             else:
                 # For ensemble evaluation (multiple particles)
-                return jnp.dot(self.foperator, ensemble)
-        #if in func space
+                return jnp.dot(self.operator, ensemble)
+        # if in func space
         else:
             # Apply the model to each particle in the ensemble
             # Using vmap for vectorization
@@ -181,10 +181,12 @@ class Schroedinger(ForwardModel):
             outputs = batched_evaluate(g_array, ensemble)
 
         return outputs
+
     def _get_fourier_operator(self):
-        i = jnp.linspace(1, self.dim_theta, self.dim_theta)
-        ki = jnp.apply_along_axis(lambda x: (jnp.pi*x)**(-2), 0, i)
+        i = jnp.linspace(1, self.D + 1, self.D + 1)
+        ki = jnp.apply_along_axis(lambda x: (jnp.pi * x) ** (-2), 0, i)
         return jnp.diag(ki)
+
 
 if __name__ == "__main__":
     D = 10
@@ -194,7 +196,10 @@ if __name__ == "__main__":
     f_array = jnp.exp(0.5 * jnp.sin(x_array))
     plot = False
     fourier = False
-    model = Schroedinger(D, D, f_array, plot,fourier)
+    model = Schroedinger(D, D, f_array, plot, fourier)
+
+    modelf = Schroedinger(D, D, f_array, plot, fourier=True)
+    print(modelf.foperator)
 
     # Create ensemble of potentials (dim_parameters, num_particles)
     num_particles = 3
