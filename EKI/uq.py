@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Coverage:
-    def __init__(self, ensemble, q=(0.025, 0.975)):
+    def __init__(self, ensemble, q=jnp.array([0.025, 0.975])):
         self.ensemble = ensemble
         self.q = q
         self.lower_upper_bounds = [0, 0]
@@ -11,7 +11,7 @@ class Coverage:
         self.B = []
 
     def compute_HPDI(self):
-        self.lower_upper_bounds = np.quantile(self.essemble, self.q)
+        self.lower_upper_bounds = jnp.quantile(self.essemble, self.q, axis=1)
 
     def compute_Coverage(self, theta_dagger):
         # compute credible intervals for each dim
