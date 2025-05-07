@@ -33,6 +33,22 @@ class ForwardModel(ABC):
     def evaluate(self):
         pass
 
+    def log_likelihood(self, theta, y, sigma_noise=1.0):
+        """
+        Compute log-likelihood assuming Gaussian noise.
+
+        Args:
+            theta: Model parameters
+            y: Observed data
+            sigma_noise: Standard deviation of observation noise
+
+        Returns:
+            Log-likelihood value
+        """
+        y_pred = self.evaluate(theta)
+        residuals = y - y_pred
+        return -0.5 * jnp.sum(residuals ** 2) / sigma_noise ** 2
+
 
 class LinearForwardModel(ForwardModel):
     def __init__(self, dim_theta, dim_y, p, coef=1):
@@ -66,19 +82,16 @@ def kth_diag_indices(a, k):
 
 
 class Schroedinger(ForwardModel):
-    def __init__(self, dim_theta, dim_y, f_array, plot, fourier=False):
+    def __init__(self, dim_theta, dim_y, f_array, g_array, plot):
         super().__init__(dim_theta, dim_y)
 
         self.D = dim_y
         self.L = 2 * jnp.pi
         self.h = self.L / self.D  # Grid spacing
         self.f_array = f_array
+        self.g_array = g_array
         self.plot = plot
-        if fourier:
-            self.operator = self._get_fourier_operator()
-        else:
-            self.operator = self._get_operator()
-        self.fourier = fourier
+        self.operator = self._get_operator()
 
     """
             Initialize the Schrödinger model.
@@ -130,7 +143,7 @@ class Schroedinger(ForwardModel):
 
         return Schroedinger_mat
 
-    def evaluate_single(self, g_array, f_potential) -> jnp.ndarray:
+    def evaluate_single(self, f_potential) -> jnp.ndarray:
         """
         Evaluate the model for a single parameter vector.
 
@@ -152,10 +165,10 @@ class Schroedinger(ForwardModel):
         L = self.operator - I
 
         # Solve the system
-        solution = jnp.linalg.pinv(L) @ g_array
+        solution = jnp.linalg.pinv(L) @ self.g_array
         return solution
 
-    def evaluate(self, g_array, ensemble) -> jnp.ndarray:
+    def evaluate(self, ensemble) -> jnp.ndarray:
         """
         Evaluate the model for an ensemble of parameters.
 
@@ -166,26 +179,34 @@ class Schroedinger(ForwardModel):
             Solutions for each parameter set in the ensemble.
         """
 
-        # if in sequence space
-        if self.fourier:
-            if ensemble.ndim == 1:
-                return self.operator @ ensemble
-            else:
-                # For ensemble evaluation (multiple particles)
-                return jnp.dot(self.operator, ensemble)
-        # if in func space
-        else:
-            # Apply the model to each particle in the ensemble
-            # Using vmap for vectorization
-            batched_evaluate = vmap(self.evaluate_single, in_axes=(None, 1), out_axes=1)
-            outputs = batched_evaluate(g_array, ensemble)
+
+
+        # Apply the model to each particle in the ensemble
+        # Using vmap for vectorization
+        batched_evaluate = vmap(self.evaluate_single, in_axes=(None, 1), out_axes=1)
+        outputs = batched_evaluate(self.g_array, ensemble)
 
         return outputs
 
-    def _get_fourier_operator(self):
-        i = jnp.linspace(1, self.D + 1, self.D + 1)
-        ki = jnp.apply_along_axis(lambda x: (jnp.pi * x) ** (-2), 0, i)
-        return jnp.diag(ki)
+
+
+
+    def log_likelihood(self, theta, y, sigma_noise=1.0):
+        """
+        Compute log-likelihood assuming Gaussian noise.
+
+        Args:
+            theta: Model parameters
+            y: Observed data
+            sigma_noise: Standard deviation of observation noise
+
+        Returns:
+            Log-likelihood value
+        """
+        y_pred = self.evaluate_single(theta)
+        residuals = y - y_pred
+        return -0.5 * jnp.sum(residuals ** 2) / sigma_noise ** 2
+
 
 
 if __name__ == "__main__":
