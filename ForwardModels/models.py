@@ -9,9 +9,8 @@ from matplotlib import pyplot as plt
 import sys
 import os
 
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from Utils.tools import compute_second_order_diff
+from Utils.tools import compute_second_order_diff, compute_laplace
 
 
 class ForwardModel(ABC):
@@ -135,34 +134,70 @@ class Schroedinger(ForwardModel):
         Returns:
             The discretized operator matrix.
         """
-        Laplace = compute_second_order_diff(self.D, self.h)
-        Schroedinger_mat = self._set_potential(Laplace)
+        laplace  = compute_laplace(self.D, self.h)
+        negative_laplace = (-1)*laplace
         if self.plot:
-            sns.heatmap(Schroedinger_mat)
+            sns.heatmap(negative_laplace)
             plt.show()
 
-        return Schroedinger_mat
+        return negative_laplace
 
-    def evaluate_single(self, f_potential) -> jnp.ndarray:
+    # def evaluate_single(self, f_potential) -> jnp.ndarray:
+    #     """
+    #     Evaluate the model for a single parameter vector.
+    #
+    #     Args:
+    #         theta: Parameter vector representing potential function.
+    #
+    #     Returns:
+    #         Solution of the Schrödinger equation.
+    #     """
+    #
+    #     # Create identity matrix for boundary conditions
+    #     I = jnp.zeros((self.D + 1, self.D + 1))
+    #
+    #     # Get diagonal indices and set values
+    #     diag_indices = kth_diag_indices(I, 0)
+    #     I = I.at[diag_indices].set(f_potential)
+    #
+    #     # Create the operator matrix L (note: L was undefined in original code, using operator)
+    #     L = self.operator - I
+    #
+    #     # Solve the system
+    #     solution = jnp.linalg.pinv(L) @ self.g_array
+    #     return solution
+
+    def evaluate_single_dirichlet(self, f_potential):
         """
-        Evaluate the model for a single parameter vector.
+        Evaluate the Schrödinger equation for a single potential function.
+        Matches the structure of your evaluate_single function.
 
         Args:
-            theta: Parameter vector representing potential function.
+            operator: The Laplacian operator matrix (D+1 x D+1)
+            f_potential: Array of potential values at grid points
+            g_array: Boundary condition array
 
         Returns:
             Solution of the Schrödinger equation.
         """
-
-        # Create identity matrix for boundary conditions
-        I = jnp.zeros((self.D + 1, self.D + 1))
+        # Create diagonal matrix for potential
+        I = jnp.zeros((len(f_potential), len(f_potential)))
 
         # Get diagonal indices and set values
         diag_indices = kth_diag_indices(I, 0)
         I = I.at[diag_indices].set(f_potential)
 
-        # Create the operator matrix L (note: L was undefined in original code, using operator)
+        # Create the operator matrix L: (1/2)Δ - f
         L = self.operator - I
+
+        # Apply Dirichlet boundary conditions
+        # Modify first row: u[0] = g_array[0]
+        L = L.at[0, :].set(0)
+        L = L.at[0, 0].set(1)
+
+        # Modify last row: u[-1] = g_array[-1]
+        L = L.at[-1, :].set(0)
+        L = L.at[-1, -1].set(1)
 
         # Solve the system
         solution = jnp.linalg.pinv(L) @ self.g_array
@@ -183,8 +218,8 @@ class Schroedinger(ForwardModel):
 
         # Apply the model to each particle in the ensemble
         # Using vmap for vectorization
-        batched_evaluate = vmap(self.evaluate_single, in_axes=(None, 1), out_axes=1)
-        outputs = batched_evaluate(self.g_array, ensemble)
+        batched_evaluate = vmap(self.evaluate_single_dirichlet, in_axes=1, out_axes=1)
+        outputs = batched_evaluate(ensemble)
 
         return outputs
 
@@ -215,25 +250,19 @@ if __name__ == "__main__":
     x_indices = jnp.arange(D + 1)
     x_array = (2 * jnp.pi * x_indices) / (D + 1)
     f_array = jnp.exp(0.5 * jnp.sin(x_array))
-    plot = False
-    fourier = False
-    model = Schroedinger(D, D, f_array, plot, fourier)
+    g_array = jnp.zeros(D +1)
+    plot = True
 
-    modelf = Schroedinger(D, D, f_array, plot, fourier=True)
-    print(modelf.foperator)
+    model = Schroedinger(D, D, f_array, g_array, plot)
+
 
     # Create ensemble of potentials (dim_parameters, num_particles)
     num_particles = 3
     ensemble = jnp.ones((D + 1, num_particles)) * 2.0  # simple test: all potentials = 2
 
-    # Create g_array (right-hand side)
-    g_array = (
-        jnp.exp(-((x_array - L / 2) ** 2) / 10)
-        - jnp.exp(-((x_array - L / 2) ** 2) / 10).mean()
-    )
 
     # Call the evaluate function
-    outputs = model.evaluate(g_array=g_array, ensemble=ensemble)
+    outputs = model.evaluate(ensemble)
 
     print("Outputs shape:", outputs.shape)  # Should be (dim_y + 1, num_particles)
     print("Outputs:")

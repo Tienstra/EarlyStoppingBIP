@@ -58,13 +58,90 @@ def compute_laplace(D, h):
     Lap = Lap.at[diag_upper_indices].set(1)
 
     # Set corner values for periodic boundary
-    Lap = Lap.at[0, -1].set(1)
-    Lap = Lap.at[-1, 0].set(1)
+    # Lap = Lap.at[0, -1].set(1)
+    # Lap = Lap.at[-1, 0].set(1)
 
     # Scale by 2h²
     Lap = Lap / (2 * (h**2))
 
     return Lap
+
+
+def apply_dirichlet_bc(Lap, rhs, g_values):
+    """
+    Apply Dirichlet boundary conditions to the linear system.
+
+    Parameters:
+    - Lap: Laplacian matrix
+    - rhs: right-hand side vector (f * u_f terms)
+    - g_values: boundary values [g(0), g(L)] where L is the domain length
+    """
+    # Make copies to avoid modifying originals
+    A = Lap.copy()
+    b = rhs.copy()
+
+    # Apply boundary conditions
+    # At x = 0 (i = 0): u[0] = g_values[0]
+    A = A.at[0, :].set(0)
+    A = A.at[0, 0].set(1)
+    b = b.at[0].set(g_values[0])
+
+    # At x = L (i = -1): u[-1] = g_values[1]
+    A = A.at[-1, :].set(0)
+    A = A.at[-1, -1].set(1)
+    b = b.at[-1].set(g_values[1])
+
+    return A, b
+
+
+def solve_schrodinger_dirichlet(D, h, f_func, g_values, domain_length=1.0):
+    """
+    Solve the time-independent Schrödinger equation with Dirichlet BCs:
+    (1/2)Δu = f*u on domain
+    u = g on boundary
+
+    Parameters:
+    - D: number of interior points (total grid points = D+1)
+    - h: grid spacing
+    - f_func: function that takes x and returns f(x)
+    - g_values: [g(0), g(L)] boundary values
+    - domain_length: length of the domain
+
+    Returns:
+    - u: solution vector
+    - x: grid points
+    """
+    # Create grid
+    x = jnp.linspace(0, domain_length, D + 1)
+
+    # Compute Laplacian matrix
+    Lap = compute_laplace_dirichlet(D, h)
+
+    # Evaluate f at grid points
+    f_values = f_func(x)
+
+    # Set up the equation: (1/2)Δu = f*u
+    # Rearrange to: (1/2)Δu - f*u = 0
+    # Or: ((1/2)Δ - diag(f))u = 0
+
+    # For non-zero boundary conditions, we need to solve:
+    # ((1/2)Δ - diag(f))u = rhs
+    # where rhs accounts for boundary terms
+
+    # Create the system matrix
+    A = Lap - jnp.diag(f_values)
+
+    # Right-hand side (initially zero for homogeneous equation)
+    rhs = jnp.zeros(D + 1)
+
+    # Apply Dirichlet boundary conditions
+    A, rhs = apply_dirichlet_bc(A, rhs, g_values)
+
+    # Solve the linear system
+    u = jnp.linalg.solve(A, rhs)
+
+    return u, x
+
 
 
 def get_function(w: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
