@@ -46,7 +46,7 @@ class ForwardModel(ABC):
         """
         y_pred = self.evaluate(theta)
         residuals = y - y_pred
-        return -0.5 * jnp.sum(residuals ** 2) / sigma_noise ** 2
+        return -0.5 * jnp.sum(residuals**2) / sigma_noise**2
 
 
 class LinearForwardModel(ForwardModel):
@@ -59,7 +59,7 @@ class LinearForwardModel(ForwardModel):
     def _get_operator(self):
         i = jnp.linspace(1, self.dim_theta, self.dim_theta)
         gi = jnp.apply_along_axis(lambda x: self.coef * (x ** (-self.p)), 0, i)
-        #gi = jnp.zeros(self.dim_theta)
+        # gi = jnp.zeros(self.dim_theta)
         return jnp.diag(gi)
 
     def evaluate(self, theta):
@@ -135,8 +135,8 @@ class Schroedinger(ForwardModel):
         Returns:
             The discretized operator matrix.
         """
-        laplace  = compute_laplace(self.D, self.h)
-        negative_laplace = (-1)*laplace
+        laplace = compute_laplace(self.D, self.h)
+        negative_laplace = (-1) * laplace
         if self.plot:
             sns.heatmap(negative_laplace)
             plt.show()
@@ -215,17 +215,12 @@ class Schroedinger(ForwardModel):
             Solutions for each parameter set in the ensemble.
         """
 
-
-
         # Apply the model to each particle in the ensemble
         # Using vmap for vectorization
         batched_evaluate = vmap(self.evaluate_single_dirichlet, in_axes=1, out_axes=1)
         outputs = batched_evaluate(ensemble)
 
         return outputs
-
-
-
 
     def log_likelihood(self, theta, y, sigma_noise=1.0):
         """
@@ -241,8 +236,7 @@ class Schroedinger(ForwardModel):
         """
         y_pred = self.evaluate_single(theta)
         residuals = y - y_pred
-        return -0.5 * jnp.sum(residuals ** 2) / sigma_noise ** 2
-
+        return -0.5 * jnp.sum(residuals**2) / sigma_noise**2
 
 
 if __name__ == "__main__":
@@ -251,16 +245,14 @@ if __name__ == "__main__":
     x_indices = jnp.arange(D + 1)
     x_array = (2 * jnp.pi * x_indices) / (D + 1)
     f_array = jnp.exp(0.5 * jnp.sin(x_array))
-    g_array = jnp.zeros(D +1)
+    g_array = jnp.zeros(D + 1)
     plot = True
 
     model = Schroedinger(D, D, f_array, g_array, plot)
 
-
     # Create ensemble of potentials (dim_parameters, num_particles)
     num_particles = 3
     ensemble = jnp.ones((D + 1, num_particles)) * 2.0  # simple test: all potentials = 2
-
 
     # Call the evaluate function
     outputs = model.evaluate(ensemble)

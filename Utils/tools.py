@@ -143,7 +143,6 @@ def solve_schrodinger_dirichlet(D, h, f_func, g_values, domain_length=1.0):
     return u, x
 
 
-
 def get_function(w: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
     """
     Reconstruct function(s) f(x) = ∑ w_k * φ_k(x) using Laplacian eigenfunctions on [0, 1].
@@ -178,6 +177,8 @@ def get_function(w: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
         batched_eval = vmap(single_reconstruction, in_axes=(1,), out_axes=1)
         f_all = batched_eval(w)  # shape: (n_particles, M)
         return f_all  # shape: (M, n_particles)
+
+
 def solution_map(v: jnp.ndarray, K: jnp.ndarray, g_tilde: jnp.ndarray) -> jnp.ndarray:
     """ """
 
@@ -194,7 +195,6 @@ def solution_map(v: jnp.ndarray, K: jnp.ndarray, g_tilde: jnp.ndarray) -> jnp.nd
         batched_eval = vmap(solution_map_single, in_axes=(1, None, None), out_axes=1)
         f_all = batched_eval(v, K, g_tilde)  # shape: (n_particles, M)
         return f_all  # shape: (M, n_particles)
-
 
 
 if __name__ == "__main__":
