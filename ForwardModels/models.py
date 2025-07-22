@@ -58,8 +58,8 @@ class LinearForwardModel(ForwardModel):
 
     def _get_operator(self):
         i = jnp.linspace(1, self.dim_theta, self.dim_theta)
-        #gi = jnp.apply_along_axis(lambda x: self.coef * (x ** (-self.p)), 0, i)
-        gi = jnp.zeros(self.dim_theta)
+        gi = jnp.apply_along_axis(lambda x: self.coef * (x ** (-self.p)), 0, i)
+        #gi = jnp.zeros(self.dim_theta)
         return jnp.diag(gi)
 
     def evaluate(self, theta):
