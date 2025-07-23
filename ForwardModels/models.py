@@ -29,7 +29,7 @@ class ForwardModel(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self):
+    def evaluate(self, ensemble):
         pass
 
     def log_likelihood(self, theta, y, sigma_noise=1.0):
@@ -52,6 +52,7 @@ class ForwardModel(ABC):
 class LinearForwardModel(ForwardModel):
     def __init__(self, dim_theta, dim_y, p, coef=1):
         super().__init__(dim_theta, dim_y)
+        self.type = "linear"
         self.p = p
         self.coef = coef
         self.operator = self._get_operator()
@@ -82,16 +83,28 @@ def kth_diag_indices(a, k):
 
 
 class Schroedinger(ForwardModel):
-    def __init__(self, dim_theta, dim_y, f_array, g_array, plot):
+    def __init__(self, dim_theta, dim_y, f_array, g_array, plot, bc_type="periodic"):
         super().__init__(dim_theta, dim_y)
-
+        self.type = "nonlinear"
         self.D = dim_y
         self.L = 2 * jnp.pi
         self.h = self.L / self.D  # Grid spacing
         self.f_array = f_array
         self.g_array = g_array
         self.plot = plot
+        self.bc_type = bc_type  # Store boundary condition type
         self.operator = self._get_operator()
+
+        # Set the evaluation function based on boundary condition type
+        if self.bc_type == "periodic":
+            self.evaluate_single = self.evaluate_single_periodic
+        elif self.bc_type == "dirichlet":
+            self.evaluate_single = self.evaluate_single_dirichlet
+        else:
+            raise ValueError(
+                f"Unknown boundary condition type: {bc_type}. "
+                "Supported types are 'periodic' and 'dirichlet'"
+            )
 
     """
             Initialize the Schrödinger model.
@@ -136,37 +149,55 @@ class Schroedinger(ForwardModel):
             The discretized operator matrix.
         """
         laplace = compute_laplace(self.D, self.h)
-        negative_laplace = (-1) * laplace
+        # negative_laplace = (-1) * laplace
         if self.plot:
-            sns.heatmap(negative_laplace)
+            sns.heatmap(laplace)
             plt.show()
 
-        return negative_laplace
+        return laplace
 
-    # def evaluate_single(self, f_potential) -> jnp.ndarray:
-    #     """
-    #     Evaluate the model for a single parameter vector.
-    #
-    #     Args:
-    #         theta: Parameter vector representing potential function.
-    #
-    #     Returns:
-    #         Solution of the Schrödinger equation.
-    #     """
-    #
-    #     # Create identity matrix for boundary conditions
-    #     I = jnp.zeros((self.D + 1, self.D + 1))
-    #
-    #     # Get diagonal indices and set values
-    #     diag_indices = kth_diag_indices(I, 0)
-    #     I = I.at[diag_indices].set(f_potential)
-    #
-    #     # Create the operator matrix L (note: L was undefined in original code, using operator)
-    #     L = self.operator - I
-    #
-    #     # Solve the system
-    #     solution = jnp.linalg.pinv(L) @ self.g_array
-    #     return solution
+    def evaluate_single_periodic(self, f_potential):
+        """
+        Evaluate the Schrödinger equation for a single potential function with periodic boundary conditions.
+
+        Args:
+            f_potential: Array of potential values at grid points
+
+        Returns:
+            Solution of the Schrödinger equation with periodic boundary conditions.
+        """
+        # Create diagonal matrix for potential
+        I = jnp.zeros((self.D + 1, self.D + 1))
+
+        # Get diagonal indices and set values
+        diag_indices = kth_diag_indices(I, 0)
+        I = I.at[diag_indices].set(f_potential)
+
+        Lap = jnp.zeros((self.D + 1, self.D + 1))
+
+        # Get diagonal indices
+        diag_indices = kth_diag_indices(Lap, 0)
+        diag_lower_indices = kth_diag_indices(Lap, -1)
+        diag_upper_indices = kth_diag_indices(Lap, 1)
+
+        # Create updated arrays with values set at specific indices
+        Lap = Lap.at[diag_indices].set(-2)
+        Lap = Lap.at[diag_lower_indices].set(1)
+        Lap = Lap.at[diag_upper_indices].set(1)
+
+        # Set corner values for periodic boundary
+        Lap = Lap.at[0, -1].set(1)
+        Lap = Lap.at[-1, 0].set(1)
+
+        # Scale by 2h²
+        Lap = Lap / (2 * (self.h**2))
+
+        G = Lap - I
+        # print('g_array', self.g_array)
+        # Solve the system
+        solution = jnp.linalg.pinv(G, rcond=1e-15) @ self.g_array
+        # print('solution', solution)
+        return solution
 
     def evaluate_single_dirichlet(self, f_potential):
         """
@@ -214,11 +245,14 @@ class Schroedinger(ForwardModel):
         Returns:
             Solutions for each parameter set in the ensemble.
         """
-
+        # print('norm ensemble evaluate', jnp.linalg.norm(ensemble))
+        # print('shape ensemble evaluate', ensemble.shape)
         # Apply the model to each particle in the ensemble
         # Using vmap for vectorization
-        batched_evaluate = vmap(self.evaluate_single_dirichlet, in_axes=1, out_axes=1)
+        batched_evaluate = vmap(self.evaluate_single, in_axes=1, out_axes=1)
         outputs = batched_evaluate(ensemble)
+        # print('norm outputs evaluate', jnp.linalg.norm(outputs))
+        # print('shape outputs evaluate', outputs.shape)
 
         return outputs
 

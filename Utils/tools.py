@@ -43,6 +43,14 @@ def compute_regularised_laplace_covariance(D, h, mu=1e2):
     return cov
 
 
+def compute_P0_inv(D, h, mu):
+    """Compute the inverse covariance matrix P0_inv as defined in equation (183)."""
+    I = jnp.eye(D + 1)
+    delta_H = compute_second_order_diff(D, h)
+    A = (mu / (D + 1)) * I - delta_H
+    return 4 * h * (A @ A)
+
+
 def compute_laplace(D, h):
     # Create empty matrix with JAX
     Lap = jnp.zeros((D + 1, D + 1))

@@ -92,13 +92,27 @@ class EKI:
         Returns:
             Initial ensemble of shape (dim_parameters, num_particles).
         """
-        # Generate standard normal samples
-        ensemble = random.normal(
-            self.rng_key, shape=(self.dim_parameters, self.num_particles)
-        )
+        if self.forward_model.type == "nonlinear":
+            print(self.forward_model.type)
+            # Generate standard normal samples
+            ensemble = random.normal(
+                self.rng_key, shape=(self.dim_parameters + 1, self.num_particles)
+            )
+            ensemble = self.init_mean[:, jnp.newaxis] + jnp.dot(
+                self.init_covariance, ensemble
+            )
+            ensemble = jnp.exp(ensemble)
+
+        else:
+            ensemble = random.normal(
+                self.rng_key, shape=(self.dim_parameters, self.num_particles)
+            )
+            ensemble = self.init_mean[:, jnp.newaxis] + jnp.dot(
+                self.init_covariance, ensemble
+            )
 
         # Transform to the specified prior distribution
-        return self.init_mean[:, jnp.newaxis] + jnp.dot(self.init_covariance, ensemble)
+        return ensemble
 
     def generate_noise_cov(self) -> jnp.ndarray:
         """
@@ -116,6 +130,7 @@ class EKI:
         Returns:
             Model predictions for the current ensemble.
         """
+        print("norm ensemble", jnp.linalg.norm(self.ensemble))
         return self.forward_model.evaluate(self.ensemble)
 
     def compute_kalman_gain(self) -> jnp.ndarray:
@@ -135,11 +150,13 @@ class EKI:
         # Center the ensemble and predictions
         centered_ensemble = self.ensemble - ensemble_mean
         centered_predictions = predictions - predictions_mean
-
+        # print('ensemble', jnp.linalg.norm(centered_ensemble))
+        # print('predictions', jnp.linalg.norm(predictions))
         # Compute cross-covariance: C_θG = (θ - θ̄)(G(θ) - G(θ̄))^T / (N-1)
         cross_cov = jnp.dot(centered_ensemble, centered_predictions.T) / (
             self.num_particles - 1
         )
+        print("norm cross_cov", jnp.linalg.norm(cross_cov))
 
         # Compute prediction covariance: C_GG = (G(θ) - G(θ̄))(G(θ) - G(θ̄))^T / (N-1)
         pred_cov = jnp.dot(centered_predictions, centered_predictions.T) / (
@@ -168,6 +185,7 @@ class EKI:
 
         # Compute Kalman gain
         kalman_gain = self.compute_kalman_gain()
+        print(jnp.linalg.norm(kalman_gain))
 
         # Update ensemble
         innovation = self.predictions + predictions_mean - 2 * obs_expanded
@@ -205,7 +223,7 @@ class EKI:
         # Run iterations until convergence or max iterations
         ts = jnp.arange(self.time[0], self.time[1], self._get_dt())
         for index in range(0, ts.size - 1):
-            print(index)
+            # print(index)
 
             # Check for convergence
             if stopping_rule is not None:
