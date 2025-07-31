@@ -130,7 +130,7 @@ class EKI:
         Returns:
             Model predictions for the current ensemble.
         """
-        print("norm ensemble", jnp.linalg.norm(self.ensemble))
+        # print("norm ensemble", jnp.linalg.norm(self.ensemble))
         return self.forward_model.evaluate(self.ensemble)
 
     def compute_kalman_gain(self) -> jnp.ndarray:
@@ -156,7 +156,7 @@ class EKI:
         cross_cov = jnp.dot(centered_ensemble, centered_predictions.T) / (
             self.num_particles - 1
         )
-        print("norm cross_cov", jnp.linalg.norm(cross_cov))
+        # print("norm cross_cov", jnp.linalg.norm(cross_cov))
 
         # Compute prediction covariance: C_GG = (G(θ) - G(θ̄))(G(θ) - G(θ̄))^T / (N-1)
         pred_cov = jnp.dot(centered_predictions, centered_predictions.T) / (
@@ -185,7 +185,7 @@ class EKI:
 
         # Compute Kalman gain
         kalman_gain = self.compute_kalman_gain()
-        print(jnp.linalg.norm(kalman_gain))
+        # print(jnp.linalg.norm(kalman_gain))
 
         # Update ensemble
         innovation = self.predictions + predictions_mean - 2 * obs_expanded

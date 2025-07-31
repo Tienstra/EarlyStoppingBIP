@@ -8,7 +8,6 @@ import sys
 import os
 
 
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ForwardModels.models import LinearForwardModel, ForwardModel
@@ -24,18 +23,18 @@ class MALA:
     """
 
     def __init__(
-            self,
-            forward_model: ForwardModel,
-            observations: jnp.ndarray,
-            dim_parameters: int,
-            init_covariance: jnp.ndarray,
-            init_mean: jnp.ndarray,
-            noise_level: float,
-            step_size: float = 0.01,
-            num_samples: int = 1000,
-            num_chains: int = 1,
-            burn_in: int = 100,
-            rng_key: Optional[jnp.ndarray] = None,
+        self,
+        forward_model: ForwardModel,
+        observations: jnp.ndarray,
+        dim_parameters: int,
+        init_covariance: jnp.ndarray,
+        init_mean: jnp.ndarray,
+        noise_level: float,
+        step_size: float = 0.01,
+        num_samples: int = 1000,
+        num_chains: int = 1,
+        burn_in: int = 100,
+        rng_key: Optional[jnp.ndarray] = None,
     ):
         """
         Initialize the MALA sampler.
@@ -77,8 +76,6 @@ class MALA:
         self.acceptance_history = []
         self.log_posterior_history = []
 
-
-
     def _sample_initial(self) -> jnp.ndarray:
         """
         Sample initial parameters from the prior distribution for all chains.
@@ -115,7 +112,7 @@ class MALA:
         return -0.5 * diff @ precision @ diff
 
     @partial(jit, static_argnums=(0,))
-    def log_likelihood(self, theta: jnp.ndarray) :
+    def log_likelihood(self, theta: jnp.ndarray):
         """
         Compute log likelihood.
 
@@ -172,8 +169,7 @@ class MALA:
         """
         grad_log_pi_x = grad(self.log_posterior)(x)
         delta = x_prime - x - (self.step_size) * grad_log_pi_x
-        return -jnp.sum(delta ** 2) / (4 * self.step_size)
-
+        return -jnp.sum(delta**2) / (4 * self.step_size)
 
     def step(self, rng_keys: jnp.ndarray, x_currents: jnp.ndarray):
         """
@@ -194,19 +190,23 @@ class MALA:
             grad_log_post = self.grad_log_posterior(x_current)
             noise = random.normal(key1, shape=x_current.shape)
             x_proposed = (
-                    x_current
-                    + self.step_size * grad_log_post
-                    + jnp.sqrt(2 * self.step_size) * noise
+                x_current
+                + self.step_size * grad_log_post
+                + jnp.sqrt(2 * self.step_size) * noise
             )
 
             log_post_current = self.log_posterior(x_current)
             log_post_proposed = self.log_posterior(x_proposed)
 
-            log_q_current_given_proposed = self.proposal_density_q(x_current, x_proposed)
-            log_q_proposed_given_current = self.proposal_density_q(x_proposed, x_current)
+            log_q_current_given_proposed = self.proposal_density_q(
+                x_current, x_proposed
+            )
+            log_q_proposed_given_current = self.proposal_density_q(
+                x_proposed, x_current
+            )
 
             log_accept_ratio = (log_post_proposed + log_q_current_given_proposed) - (
-                    log_post_current + log_q_proposed_given_current
+                log_post_current + log_q_proposed_given_current
             )
 
             accept = jnp.log(random.uniform(key2)) < log_accept_ratio
@@ -247,7 +247,7 @@ class MALA:
 
         return {
             "samples": samples,
-            "burned_samples": samples[self.burn_in:],
+            "burned_samples": samples[self.burn_in :],
             "acceptance_rate": jnp.mean(acceptances),
             "acceptance_history": acceptances,
             "num_chains": self.num_chains,
@@ -304,7 +304,7 @@ def main():
     print(f"Samples shape: {results['samples'].shape}")
 
     # Per-chain acceptance rates
-    chain_acceptance_rates = jnp.mean(results['acceptance_history'], axis=0)
+    chain_acceptance_rates = jnp.mean(results["acceptance_history"], axis=0)
     print(f"Per-chain acceptance rates: {chain_acceptance_rates}")
 
 
