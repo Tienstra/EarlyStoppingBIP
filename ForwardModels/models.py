@@ -83,16 +83,19 @@ def kth_diag_indices(a, k):
 
 
 class Schroedinger(ForwardModel):
-    def __init__(self, dim_theta, dim_y, f_array, g_array, plot, bc_type="periodic"):
+    def __init__(
+        self, dim_theta, dim_y, f_array, g_array, h_array, plot, bc_type="periodic"
+    ):
         super().__init__(dim_theta, dim_y)
         self.type = "nonlinear"
         self.D = dim_y
         self.L = 2 * jnp.pi
         self.h = self.L / self.D  # Grid spacing
-        self.f_array = f_array
-        self.g_array = g_array
+        self.f_array = f_array  # potential
+        self.g_array = g_array  # source term
+        self.h_array = h_array  # boundary term
         self.plot = plot
-        self.bc_type = bc_type  # Store boundary condition type
+        self.bc_type = bc_type  # string boundary condition type
         self.operator = self._get_operator()
 
         # Set the evaluation function based on boundary condition type
@@ -205,9 +208,7 @@ class Schroedinger(ForwardModel):
         Matches the structure of your evaluate_single function.
 
         Args:
-            operator: The Laplacian operator matrix (D+1 x D+1)
             f_potential: Array of potential values at grid points
-            g_array: Boundary condition array
 
         Returns:
             Solution of the Schrödinger equation.
@@ -223,16 +224,23 @@ class Schroedinger(ForwardModel):
         L = self.operator - I
 
         # Apply Dirichlet boundary conditions
-        # Modify first row: u[0] = g_array[0]
+        # Modify first row: u[0] = h_array[0]
         L = L.at[0, :].set(0)
         L = L.at[0, 0].set(1)
 
-        # Modify last row: u[-1] = g_array[-1]
+        # Modify last row: u[-1] = h_array[-1]
         L = L.at[-1, :].set(0)
         L = L.at[-1, -1].set(1)
 
+        rhs = (
+            jnp.zeros(len(f_potential))
+            if self.g_array is None
+            else jnp.array(self.g_array, dtype=L.dtype)
+        )
+        rhs = rhs.at[0].set(self.h_array[0])
+        rhs = rhs.at[-1].set(self.h_array[-1])
         # Solve the system
-        solution = jnp.linalg.pinv(L) @ self.g_array
+        solution = jnp.linalg.pinv(L) @ rhs
         return solution
 
     def evaluate(self, ensemble) -> jnp.ndarray:
